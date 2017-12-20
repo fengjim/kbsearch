@@ -1,8 +1,11 @@
 from dateutil.parser import parse
+from datetime import datetime
 
 import mechanize
 from selenium import webdriver
 
+
+print 'Scanning Script started at', datetime.now().strftime('%Y %m %d %H:%M:%S:%f')
 
 # setup the broswer
 br = mechanize.Browser()
@@ -30,7 +33,7 @@ if len(lines) <= 0 :
     print 'unable to parse csv file'
     exit(1)
 
-print 'Get CSV file with', len(lines), 'lines'
+print 'CSV file from Cloudphysics with', len(lines), 'lines'
 
 header = lines[0]
 
@@ -54,7 +57,7 @@ dateformat = '%Y-%m-%d'
 driver = webdriver.PhantomJS()
 # implicity wait 5 seconds to let the page completely loaded
 # todo: explicit wait is better to if login is needed or not
-driver.implicitly_wait(6)
+driver.implicitly_wait(10)
 
 def checkb(br, url, cpupdate, author):
     #kbpage = br.open(url).read()
@@ -93,4 +96,4 @@ for kb in lines[1:]:
        checkb(br, attrs[url_index].strip(), attrs[last_update_index].strip(), attrs[submitter_index].strip())
 
 driver.close()
-print 'finished all the KB scanning'
+print 'finished all the KB scanning at', datetime.now().strftime('%Y %m %d %H:%M:%S:%f')
