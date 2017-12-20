@@ -1,9 +1,10 @@
-import re
 from dateutil.parser import parse
 
 import mechanize
 from selenium import webdriver
 
+
+# setup the broswer
 br = mechanize.Browser()
 br.set_handle_robots(False)
 
@@ -62,12 +63,15 @@ def checkb(br, url, cpupdate, author):
     driver.get(url)
     matches = driver.find_elements_by_class_name('uiOutputDate')
     if matches and len(matches) > 0:
-        kbdate = parse(matches[0].text)
-        cpdate = parse(cpupdate)
-        if kbdate > cpdate or kbdate < cpdate:
-            print 'update;', url, ';', cpdate.strftime(dateformat), ';', kbdate.strftime(dateformat), ';', author
+        try:
+            kbdate = parse(matches[0].text)
+            cpdate = parse(cpupdate)
+            if kbdate > cpdate or kbdate < cpdate:
+                print 'update;', url, ';', cpdate.strftime(dateformat), ';', kbdate.strftime(dateformat), ';', author
+        except Exception as inst:
+            print 'date_error;', url, ';', cpupdate, ';', 'unknown', ';', author, ';', inst
     else :
-        print 'error;', url, ';', cpupdate, ';', 'unknown', ';', author
+        print 'page_error;', url, ';', cpupdate, ';', 'unknown', ';', author
 
 for index, column in enumerate(header.split('|')):
     if column == KB_PUBLISHER_COL:
