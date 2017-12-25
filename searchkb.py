@@ -2,8 +2,10 @@ from dateutil.parser import parse
 from datetime import datetime
 
 import mechanize
-from selenium import webdriver
 
+from threadworker import ThreadWorker
+
+NUM_OF_THREADS = 6
 
 print 'Scanning Script started at', datetime.now().strftime('%Y %m %d %H:%M:%S:%f')
 
@@ -37,7 +39,6 @@ print 'CSV file from Cloudphysics with', len(lines), 'lines'
 
 header = lines[0]
 
-KB_VENDOR_VMWARE = 'VMware'
 KB_URL_COL = 'url'
 KB_LAST_UPATE_COL = 'last_updated_date'
 KB_SUBMITTER_COL = 'submitted_by'
@@ -48,33 +49,6 @@ url_index = -1
 last_update_index = -1
 submitter_index = -1
 publisher_index = -1
-
-# non-greedy pattern
-#regEx = re.compile('"uiOutputDate">(.+?)</span>')
-dateformat = '%Y-%m-%d'
-
-
-driver = webdriver.PhantomJS()
-# implicity wait 5 seconds to let the page completely loaded
-# todo: explicit wait is better to if login is needed or not
-driver.implicitly_wait(10)
-
-def checkb(br, url, cpupdate, author):
-    #kbpage = br.open(url).read()
-    # get kb update time
-    #matches = regEx.findall(kbpage)
-    driver.get(url)
-    matches = driver.find_elements_by_class_name('uiOutputDate')
-    if matches and len(matches) > 0:
-        try:
-            kbdate = parse(matches[0].text)
-            cpdate = parse(cpupdate)
-            if kbdate > cpdate or kbdate < cpdate:
-                print 'update;', url, ';', cpdate.strftime(dateformat), ';', kbdate.strftime(dateformat), ';', author
-        except Exception as inst:
-            print 'date_error;', url, ';', cpupdate, ';', 'unknown', ';', author, ';', inst
-    else :
-        print 'page_error;', url, ';', cpupdate, ';', 'unknown', ';', author
 
 for index, column in enumerate(header.split('|')):
     if column == KB_PUBLISHER_COL:
@@ -89,11 +63,24 @@ if url_index == -1 or last_update_index == -1 or submitter_index == -1 or publis
     print 'failed to parse header line in CSV file'
     print url_index, last_update_index, submitter_index, publisher_index
     exit(1)
+br.close()
 
-for kb in lines[1:]:
-   attrs = kb.split('|')
-   if len(attrs) > publisher_index and attrs[publisher_index].strip() == KB_VENDOR_VMWARE :
-       checkb(br, attrs[url_index].strip(), attrs[last_update_index].strip(), attrs[submitter_index].strip())
+# calculate the range of KBs each threadworker should handle
+slotsize = len(lines) / NUM_OF_THREADS
+leftover = len(lines) % NUM_OF_THREADS
+workers = []
+for slot in range(NUM_OF_THREADS + 1 if leftover > 0 else NUM_OF_THREADS):
+    sIndex = slotsize*slot
+    eIndex = len(lines) - 1 if sIndex + slotsize > len(lines) else sIndex + slotsize - 1
+    worker = ThreadWorker(wlist = lines, sIndex = sIndex, eIndex = eIndex,
+                indices = {'publisher_index': publisher_index,
+                    'url_index':url_index,
+                    'last_update_index': last_update_index,
+                    'submitter_index': submitter_index})
+    workers.append(worker)
+    worker.start()
 
-driver.close()
+for worker in workers:
+    worker.join()
+
 print 'finished all the KB scanning at', datetime.now().strftime('%Y %m %d %H:%M:%S:%f')
