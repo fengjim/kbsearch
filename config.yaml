@@ -1,0 +1,9 @@
+cloudphysics:
+  login_page: https://app.cloudphysics.com/login
+  kblist_page: https://app.cloudphysics.com/issuesalert/entries/csv
+  username: username
+  password: password
+
+threads: 10
+
+phantomjs: path_to_phantomjs
