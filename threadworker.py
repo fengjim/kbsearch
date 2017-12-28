@@ -14,13 +14,17 @@ KB_VENDOR_VMWARE = 'VMware'
 
 class ThreadWorker(threading.Thread):
 
-    def __init__(self, wlist = [], sIndex = 0, eIndex = 0, indices = {}):
+    def __init__(self, wlist = [], sIndex = 0, eIndex = 0, indices = {}, phantomjs = ''):
         threading.Thread.__init__(self)
         self.workingList = wlist
         self.startIndex = sIndex
         self.endIndex = eIndex
         self.indices = indices
-        self.driver = webdriver.PhantomJS()
+        if not phantomjs:
+            # if phantomjs is not provided, rely on $PATH to find phantomjs
+            self.driver = webdriver.PhantomJS()
+        else:
+            self.driver = webdriver.PhantomJS(phantomjs)
         self.driver.implicitly_wait(waiting_time)
 
     def __del__(self):
