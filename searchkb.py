@@ -6,7 +6,6 @@ import sys
 import os.path
 import inspect
 import argparse
-
 import mechanize
 import yaml
 
