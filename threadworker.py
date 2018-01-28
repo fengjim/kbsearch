@@ -48,8 +48,15 @@ class ThreadWorker(threading.Thread):
         if matches and len(matches) > 0:
             try:
                 kbdate = parse(matches[0].text)
-                if kbdate > cpdate or kbdate < cpdate:
+                if kbdate > cpdate:
                     print kbformat.format(updatetype='update',
+                        kburl=url,
+                        cpdate=cpdate.strftime(dateformat),
+                        kbdate=kbdate.strftime(dateformat),
+                        author=author,
+                        detail='')
+                elif kbdate < cpdate:
+                    print kbformat.format(updatetype='data_lost',
                         kburl=url,
                         cpdate=cpdate.strftime(dateformat),
                         kbdate=kbdate.strftime(dateformat),
