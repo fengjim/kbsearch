@@ -6,4 +6,5 @@ cloudphysics:
 
 threads: 10
 
-phantomjs: path_to_phantomjs
+driver:
+  name: chrome

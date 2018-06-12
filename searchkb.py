@@ -2,6 +2,9 @@ from dateutil.parser import parse
 from datetime import datetime
 from threadworker import ThreadWorker
 
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+
 import sys
 import os.path
 import inspect
@@ -75,21 +78,44 @@ def parseColumnIndex(indices, header):
 
     return True
 
-def startWorkers(threadNum, lines, indices, phantomjs):
+def createDriver(driver, path):
+
+    if driver == 'chrome':
+        chrome_options = Options()
+        chrome_options.add_argument("--disable-extensions")
+        chrome_options.add_argument("--disable-dev-shm-usage")
+        chrome_options.add_argument("--no-sandbox")
+        chrome_options.add_argument("--headless")
+        driver = webdriver.Chrome(path, chrome_options=chrome_options)
+        return driver
+
+    return None
+
+def destroyDriver(type, driver):
+    if type == 'chrome':
+        driver.quit()
+
+def startWorkers(threadNum, lines, indices, driver, path):
     # calculate the range of KBs each threadworker should handle
     slotsize = len(lines) / threadNum
     leftover = len(lines) % threadNum
     workers = []
+    driverInstances = []
     for slot in range(threadNum + 1 if leftover > 0 else threadNum):
+        drInst = createDriver(driver, path)
+        driverInstances.append(drInst)
         sIndex = slotsize*slot
         eIndex = len(lines) - 1 if sIndex + slotsize > len(lines) else sIndex + slotsize - 1
-        worker = ThreadWorker(wlist = lines, sIndex = sIndex, eIndex = eIndex,
-                    indices = indices, phantomjs = phantomjs)
+        worker = ThreadWorker(driver = drInst, wlist = lines, sIndex = sIndex, eIndex = eIndex,
+                    indices = indices)
         workers.append(worker)
         worker.start()
 
     for worker in workers:
         worker.join()
+
+    for di in drivers:
+        destroyDriver(driver, di)
 
 if len(sys.argv) > 1:
     configFile = sys.argv[1]
@@ -111,7 +137,6 @@ cpLoginPage = cpCfg.get('login_page', DEFAULT_CLOUDPHYSICS_LOGIN_ADDRESS)
 cpCSVPage = cpCfg.get('kblist_page', DEFAULT_CLOUDPHYSICS_KBLIST_CSV_ADDRESS)
 username = cpCfg.get('username')
 password = cpCfg.get('password')
-phantomjs = cfg.get('phantomjs', '')
 
 if not username or not password:
     print 'failed to read cloudphysics login information'
@@ -134,6 +159,14 @@ columnIndices = {}
 if not parseColumnIndex(columnIndices, lines[0]):
     exit(1)
 
-startWorkers(cpCfg.get('threads', DEFAULT_NUM_OF_THREADS), lines, columnIndices, phantomjs)
+driverCfg = cfg.get('driver')
+if driverCfg is not None:
+    driver = driverCfg.get('driver', 'chrome')
+    path = driverCfg.get('driver_path', '/usr/lib/chromium-browser/chromedriver')
+else:
+    driver = 'chrome'
+    path = '/usr/lib/chromium-browser/chromedriver'
+
+startWorkers(cpCfg.get('threads', DEFAULT_NUM_OF_THREADS), lines, columnIndices, driver, path)
 
 print 'finished all the KB scanning at', datetime.now().strftime('%Y %m %d %H:%M:%S:%f')

@@ -3,7 +3,6 @@ import logging
 
 from dateutil.parser import parse
 from datetime import datetime, date
-from selenium import webdriver
 
 # create logger
 logging.basicConfig(level=logging.INFO)
@@ -15,21 +14,16 @@ KB_VENDOR_VMWARE = 'VMware'
 
 class ThreadWorker(threading.Thread):
 
-    def __init__(self, wlist = [], sIndex = 0, eIndex = 0, indices = {}, phantomjs = ''):
+    def __init__(self, driver, wlist = [], sIndex = 0, eIndex = 0, indices = {}):
         threading.Thread.__init__(self)
         self.workingList = wlist
         self.startIndex = sIndex
         self.endIndex = eIndex
         self.indices = indices
-        if not phantomjs:
-            # if phantomjs is not provided, rely on $PATH to find phantomjs
-            self.driver = webdriver.PhantomJS()
-        else:
-            self.driver = webdriver.PhantomJS(phantomjs)
+        self.driver = driver
         self.driver.implicitly_wait(waiting_time)
 
-    def __del__(self):
-        self.driver.close()
+    def __del__(self): pass
 
     def __hyperlink(self, url):
         return hyperlinkformat.format(url = url)
