@@ -91,9 +91,9 @@ def createDriver(driver, path):
 
     return None
 
-def destroyDriver(type, driver):
-    if type == 'chrome':
-        driver.quit()
+def destroyDriver(driver, instance):
+    if driver == 'chrome':
+        instance.quit()
 
 def startWorkers(threadNum, lines, indices, driver, path):
     # calculate the range of KBs each threadworker should handle
