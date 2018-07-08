@@ -114,15 +114,22 @@ def startWorkers(threadNum, lines, indices, driver, path):
     for worker in workers:
         worker.join()
 
-    for di in drivers:
+    for di in driverInstances:
         destroyDriver(driver, di)
 
-if len(sys.argv) > 1:
-    configFile = sys.argv[1]
+parser = argparse.ArgumentParser()
+parser.add_argument("-c", "--config",  help="specify configuration file path")
+parser.add_argument("-o", "--output", help="redirect output to a file")
+args = parser.parse_args()
+
+if args.config:
+    configFile = args.config 
 else:
     scriptDir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
     configFile = os.path.join(scriptDir, DEFAULT_CONFIG_FILE)
 
+if args.output:
+    sys.stdout = open(args.output, 'w', 1)
 
 # check config file exists or not
 if not os.path.isfile(configFile):
