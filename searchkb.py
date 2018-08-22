@@ -1,6 +1,7 @@
 from dateutil.parser import parse
 from datetime import datetime
 from threadworker import ThreadWorker
+from logthread import LogThreadWorker
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -23,6 +24,8 @@ KB_URL_COL = 'url'
 KB_LAST_UPATE_COL = 'last_updated_date'
 KB_SUBMITTER_COL = 'submitted_by'
 KB_PUBLISHER_COL = 'publisher'
+
+configFile = None
 
 def getCSV(cplogin, username, password, cpcsv):
     # setup the broswer
@@ -86,7 +89,7 @@ def createDriver(driver, path):
         chrome_options.add_argument("--disable-dev-shm-usage")
         chrome_options.add_argument("--no-sandbox")
         chrome_options.add_argument("--headless")
-        driver = webdriver.Chrome(path, chrome_options=chrome_options)
+        driver = webdriver.Chrome(path, chrome_options=chrome_options, service_args=["--verbose", "--log-path=/home/ubuntu/driver.log"])
         return driver
 
     return None
@@ -95,7 +98,7 @@ def destroyDriver(driver, instance):
     if driver == 'chrome':
         instance.quit()
 
-def startWorkers(threadNum, lines, indices, driver, path):
+def startWorkers(threadNum, lines, indices, driver, path, logger):
     # calculate the range of KBs each threadworker should handle
     slotsize = len(lines) / threadNum
     leftover = len(lines) % threadNum
@@ -107,12 +110,15 @@ def startWorkers(threadNum, lines, indices, driver, path):
         sIndex = slotsize*slot
         eIndex = len(lines) - 1 if sIndex + slotsize > len(lines) else sIndex + slotsize - 1
         worker = ThreadWorker(driver = drInst, wlist = lines, sIndex = sIndex, eIndex = eIndex,
-                    indices = indices)
+                    indices = indices, logger = logger)
         workers.append(worker)
         worker.start()
 
     for worker in workers:
         worker.join()
+
+    # notify logger thread to stop writing to file
+    finished_scanning = True
 
     for di in driverInstances:
         destroyDriver(driver, di)
@@ -120,16 +126,21 @@ def startWorkers(threadNum, lines, indices, driver, path):
 parser = argparse.ArgumentParser()
 parser.add_argument("-c", "--config",  help="specify configuration file path")
 parser.add_argument("-o", "--output", help="redirect output to a file")
+parser.add_argument("-d", "--dump", help="dump CSV list into a file")
 args = parser.parse_args()
 
 if args.config:
-    configFile = args.config 
+    configFile = args.config
 else:
     scriptDir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
     configFile = os.path.join(scriptDir, DEFAULT_CONFIG_FILE)
 
 if args.output:
-    sys.stdout = open(args.output, 'w', 1)
+    kbLogFile = args.output
+
+dumpToFile = None
+if args.dump:
+    dumpToFile = args.dump
 
 # check config file exists or not
 if not os.path.isfile(configFile):
@@ -155,6 +166,10 @@ if not csvfile:
     print 'Cloudphysics KB list is empty'
     exit(1)
 
+if dumpToFile:
+    with open(dumpToFile, 'w') as dFileHandler:
+        dFileHandler.write(csvfile)
+
 lines = csvfile.split('\n')
 if len(lines) <= 0 :
     print 'unable to parse csv file'
@@ -174,6 +189,17 @@ else:
     driver = 'chrome'
     path = '/usr/lib/chromium-browser/chromedriver'
 
-startWorkers(cpCfg.get('threads', DEFAULT_NUM_OF_THREADS), lines, columnIndices, driver, path)
+kb_logger =  LogThreadWorker(kbLogFile)
+kb_logger.start()
+
+startWorkers(cpCfg.get('threads', DEFAULT_NUM_OF_THREADS), lines, columnIndices, driver, path, kb_logger)
+kb_logger.stop()
+try:
+    # wait a bit to let the logger finish writing the buffer into file
+    kb_logger.join()
+except Exception as ex:
+    print('error:', str(ex))
+finally:
+    print 'Number of actually scanned KB:', kb_logger.num_of_kbs()
 
 print 'finished all the KB scanning at', datetime.now().strftime('%Y %m %d %H:%M:%S:%f')
